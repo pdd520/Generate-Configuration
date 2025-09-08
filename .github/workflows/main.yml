@@ -3,8 +3,8 @@ name: sub_merge
 on:
   workflow_dispatch:
 
-  schedule:
-    - cron: " 0 2,14 * * *"
+  #schedule:
+    #- cron: " 0 2,14 * * *"
 
 jobs:
   deploy:
