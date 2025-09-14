@@ -19,8 +19,8 @@ jobs:
 
       - name: Filter channels (CCTV + 卫视)
         run: |
-          # 过滤出 CCTV 和 卫视，并去重
-          grep -E 'CCTV|卫视' raw.txt | grep -E 'http://[0-9]+\.[0-9]+\.[0-9]+:' | sort -u > filtered.txt
+          # 过滤出 CCTV 和 卫视，并去掉 http:/// 这种坏链接
+          grep -E 'CCTV|卫视' raw.txt | grep -v 'http:///' | sort -u > filtered.txt
 
           # --- CCTV 处理 (提取数字并排序 1-17) ---
           grep 'CCTV' filtered.txt | \
@@ -32,7 +32,7 @@ jobs:
               }
             }' | sort -t, -k3,3n | cut -d, -f1,2 > cctv_sorted.txt
 
-          # --- 卫视处理 (按拼音排序) ---
+          # --- 卫视处理 (拼音排序) ---
           grep '卫视' filtered.txt | LC_ALL=C sort -t, -k1,1 > weishi_sorted.txt
 
           # --- 合并 ---
