@@ -20,23 +20,27 @@ jobs:
       - name: Filter channels (CCTV + 卫视)
         run: |
           # 过滤出 CCTV 和 卫视，并去重
-          grep -E 'CCTV[0-9]+|卫视' raw.txt | grep -E 'http://[0-9]+\.[0-9]+\.[0-9]+:' | sort -u > filtered.txt
+          grep -E 'CCTV|卫视' raw.txt | grep -E 'http://[0-9]+\.[0-9]+\.[0-9]+:' | sort -u > filtered.txt
 
-          # --- CCTV 处理 ---
-          grep -E 'CCTV[0-9]+' filtered.txt | \
+          # --- CCTV 处理 (提取数字并排序 1-17) ---
+          grep 'CCTV' filtered.txt | \
             sed -E 's/^CCTV-?([0-9]+)/CCTV\1/' | \
-            awk -F, '{print $0, substr($1,5)}' OFS=, | \
-            sort -t, -k3,3n | cut -d, -f1,2 > cctv_sorted.txt
+            awk -F, '{
+              if (match($1,"CCTV[0-9]+")) {
+                num = substr($1, RSTART+4, RLENGTH-4);
+                print $0","num
+              }
+            }' | sort -t, -k3,3n | cut -d, -f1,2 > cctv_sorted.txt
 
-          # --- 卫视处理 (拼音排序) ---
-          grep -E '卫视' filtered.txt | LC_ALL=C sort -t, -k1,1 > weishi_sorted.txt
+          # --- 卫视处理 (按拼音排序) ---
+          grep '卫视' filtered.txt | LC_ALL=C sort -t, -k1,1 > weishi_sorted.txt
 
           # --- 合并 ---
           cat cctv_sorted.txt weishi_sorted.txt > clean.txt
 
       - name: Show stats
         run: |
-          cctv_count=$(grep -c '^CCTV' cctv_sorted.txt || true)
+          cctv_count=$(grep -c 'CCTV' cctv_sorted.txt || true)
           weishi_count=$(grep -c '卫视' weishi_sorted.txt || true)
           total_count=$(wc -l < clean.txt)
 
@@ -59,7 +63,6 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
 
-          # 检查 iptv.m3u 是否新增或修改
           if [ -n "$(git status --porcelain iptv.m3u)" ]; then
             git add iptv.m3u
             git commit -m "Update IPTV playlist [$(date '+%Y-%m-%d %H:%M:%S')]"
