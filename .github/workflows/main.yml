@@ -1,0 +1,45 @@
+name: IPTV Update
+
+on:
+  schedule:
+    - cron: "0 0 * * *"   # 每天运行一次
+  workflow_dispatch:
+
+jobs:
+  update-iptv:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Download remote txt
+        run: |
+          curl -sL "https://raw.githubusercontent.com/redrainl/iptv/main/speedtest/txt/fofa_Shanghai_103.txt" -o raw.txt
+
+      - name: Clean and deduplicate
+        run: |
+          # 过滤掉错误的 http:/// 链接，只保留正确的 http://IP:PORT/udp/... 地址
+          grep -E '^.+,http://[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:' raw.txt | sort -u > clean.txt
+
+      - name: Convert to m3u
+        run: |
+          echo "#EXTM3U" > iptv.m3u
+          while IFS=, read -r name url; do
+            echo "#EXTINF:-1,${name}" >> iptv.m3u
+            echo "${url}" >> iptv.m3u
+          done < clean.txt
+
+      - name: Commit and Push if changed
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+          # 检查 iptv.m3u 是否新增或修改
+          if [ -n "$(git status --porcelain iptv.m3u)" ]; then
+            git add iptv.m3u
+            git commit -m "Update IPTV playlist [$(date '+%Y-%m-%d %H:%M:%S')]"
+            git push
+          else
+            echo "No changes detected, skip commit."
+          fi
